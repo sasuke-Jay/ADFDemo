@@ -1,0 +1,9 @@
+{
+	"name": "testadfjzr",
+	"location": "southindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "8c6815e6-6019-458e-8836-04591a38a449",
+		"tenantId": "cb518588-8741-403d-ae49-c4794c63dbe4"
+	}
+}
