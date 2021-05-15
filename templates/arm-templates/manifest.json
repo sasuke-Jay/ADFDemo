@@ -1,8 +1,0 @@
-{
-	"name": "arm-templates",
-	"annotations": [],
-	"services": [
-		"Azure Data Lake Storage"
-	],
-	"categories": []
-}
