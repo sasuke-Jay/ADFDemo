@@ -1,0 +1,11 @@
+ {
+        "factoryName": {
+            "value": "adf-demo-adfdemo-dev"
+        },
+        "MovielensDataLakeStorage_properties_typeProperties_url": {
+            "value": "https://dladfdemodc123dev.dfs.core.windows.net"
+        },
+        "datalakekeyvault_properties_typeProperties_baseUrl": {
+            "value": "https://demo-adfdemo-dev-vault.vault.azure.net/"
+        }
+}

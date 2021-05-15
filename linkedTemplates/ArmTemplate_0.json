@@ -1,0 +1,362 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "factoryName": {
+            "type": "string",
+            "metadata": "Data Factory name",
+            "defaultValue": "adf-demo-movielens-dev"
+        },
+        "datalakekeyvault_properties_typeProperties_baseUrl": {
+            "type": "string",
+            "defaultValue": "https://demo-movielens-dev-vault.vault.azure.net/"
+        },
+        "MovielensDataLakeStorage_properties_typeProperties_url": {
+            "type": "string",
+            "defaultValue": "https://dlmovielensdev.dfs.core.windows.net"
+        }
+    },
+    "variables": {
+        "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+    },
+    "resources": [
+        {
+            "name": "[concat(parameters('factoryName'), '/DataFlowIRMedium')]",
+            "type": "Microsoft.DataFactory/factories/integrationRuntimes",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "type": "Managed",
+                "typeProperties": {
+                    "computeProperties": {
+                        "location": "AutoResolve",
+                        "dataFlowProperties": {
+                            "computeType": "MemoryOptimized",
+                            "coreCount": 80,
+                            "timeToLive": 0
+                        }
+                    }
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/datalakekeyvault')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "annotations": [],
+                "type": "AzureKeyVault",
+                "typeProperties": {
+                    "baseUrl": "[parameters('datalakekeyvault_properties_typeProperties_baseUrl')]"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/MovielensDataLakeStorage')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "annotations": [],
+                "type": "AzureBlobFS",
+                "typeProperties": {
+                    "url": "[parameters('MovielensDataLakeStorage_properties_typeProperties_url')]",
+                    "accountKey": {
+                        "type": "AzureKeyVaultSecret",
+                        "store": {
+                            "referenceName": "datalakekeyvault",
+                            "type": "LinkedServiceReference"
+                        },
+                        "secretName": "key1",
+                        "secretVersion": ""
+                    }
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/datalakekeyvault')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/StageRatingsCSV')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "MovielensDataLakeStorage",
+                    "type": "LinkedServiceReference"
+                },
+                "annotations": [],
+                "type": "DelimitedText",
+                "typeProperties": {
+                    "location": {
+                        "type": "AzureBlobFSLocation",
+                        "folderPath": {
+                            "value": "@concat('Ratings/',convertFromUtc(utcnow(),'Central European Standard Time','yyyy/MM/dd/HH'))",
+                            "type": "Expression"
+                        },
+                        "fileSystem": "dc1-staging"
+                    },
+                    "columnDelimiter": ",",
+                    "compressionCodec": "gzip",
+                    "escapeChar": "\\",
+                    "firstRowAsHeader": true,
+                    "quoteChar": "\""
+                },
+                "schema": []
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/MovielensDataLakeStorage')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/CuratedRatingsHourlyParquet')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "MovielensDataLakeStorage",
+                    "type": "LinkedServiceReference"
+                },
+                "annotations": [],
+                "type": "Parquet",
+                "typeProperties": {
+                    "location": {
+                        "type": "AzureBlobFSLocation",
+                        "folderPath": {
+                            "value": "@concat('Ratings/',convertFromUtc(utcnow(),'Central European Standard Time','Ratings/yyyy/MM/dd/HH'))",
+                            "type": "Expression"
+                        },
+                        "fileSystem": "dc1-curated"
+                    },
+                    "compressionCodec": "snappy"
+                },
+                "schema": []
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/MovielensDataLakeStorage')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/CuratedRatingsAllParquet')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "MovielensDataLakeStorage",
+                    "type": "LinkedServiceReference"
+                },
+                "annotations": [],
+                "type": "Parquet",
+                "typeProperties": {
+                    "location": {
+                        "type": "AzureBlobFSLocation",
+                        "folderPath": "Ratings",
+                        "fileSystem": "dc1-curated"
+                    },
+                    "compressionCodec": "snappy"
+                },
+                "schema": []
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/MovielensDataLakeStorage')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/ConsumptionCosineSimilaritiesParquet')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "MovielensDataLakeStorage",
+                    "type": "LinkedServiceReference"
+                },
+                "annotations": [],
+                "type": "Parquet",
+                "typeProperties": {
+                    "location": {
+                        "type": "AzureBlobFSLocation",
+                        "folderPath": "CosineSimilarities",
+                        "fileSystem": "dc1-consumption"
+                    },
+                    "compressionCodec": "snappy"
+                },
+                "schema": []
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/MovielensDataLakeStorage')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/DataCurationAndPartition')]",
+            "type": "Microsoft.DataFactory/factories/dataflows",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "type": "MappingDataFlow",
+                "typeProperties": {
+                    "sources": [
+                        {
+                            "dataset": {
+                                "referenceName": "StageRatingsCSV",
+                                "type": "DatasetReference"
+                            },
+                            "name": "StagingLayer"
+                        }
+                    ],
+                    "sinks": [
+                        {
+                            "dataset": {
+                                "referenceName": "CuratedRatingsHourlyParquet",
+                                "type": "DatasetReference"
+                            },
+                            "name": "CuratedLayer"
+                        }
+                    ],
+                    "transformations": [
+                        {
+                            "name": "RemoveTimeStamp"
+                        },
+                        {
+                            "name": "FilterNullUserId"
+                        }
+                    ],
+                    "script": "source(output(\n\t\tuserId as short,\n\t\tmovieId as integer,\n\t\trating as double,\n\t\ttimestamp as integer\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false) ~> StagingLayer\nStagingLayer select(mapColumn(\n\t\tuserId,\n\t\tmovieId,\n\t\trating\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true) ~> RemoveTimeStamp\nRemoveTimeStamp filter(!isNull(userId)) ~> FilterNullUserId\nFilterNullUserId sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tformat: 'parquet',\n\ttruncate: true,\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true) ~> CuratedLayer"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/datasets/StageRatingsCSV')]",
+                "[concat(variables('factoryId'), '/datasets/CuratedRatingsHourlyParquet')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/CalculateCosineSimilarities')]",
+            "type": "Microsoft.DataFactory/factories/dataflows",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "type": "MappingDataFlow",
+                "typeProperties": {
+                    "sources": [
+                        {
+                            "dataset": {
+                                "referenceName": "CuratedRatingsAllParquet",
+                                "type": "DatasetReference"
+                            },
+                            "name": "CuratedRatingsAllParquet"
+                        }
+                    ],
+                    "sinks": [
+                        {
+                            "dataset": {
+                                "referenceName": "ConsumptionCosineSimilaritiesParquet",
+                                "type": "DatasetReference"
+                            },
+                            "name": "ConsumptionCosineSimilarities"
+                        }
+                    ],
+                    "transformations": [
+                        {
+                            "name": "GetAllMovieRatings"
+                        },
+                        {
+                            "name": "DuplicateAllMovieRatingsForSelfJoin"
+                        },
+                        {
+                            "name": "SelfJoin"
+                        },
+                        {
+                            "name": "RemoveDuplicatedRatingsPairs"
+                        },
+                        {
+                            "name": "ComputeCosineSimilarities"
+                        }
+                    ],
+                    "script": "source(output(\n\t\tuserId as short,\n\t\tmovieId as integer,\n\t\trating as double\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tformat: 'parquet',\n\twildcardPaths:['**/*.parquet']) ~> CuratedRatingsAllParquet\nCuratedRatingsAllParquet select(mapColumn(\n\t\tuserId,\n\t\tmovieId1 = movieId,\n\t\trating1 = rating\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true) ~> GetAllMovieRatings\nCuratedRatingsAllParquet select(mapColumn(\n\t\tuserId,\n\t\tmovieId2 = movieId,\n\t\trating2 = rating\n\t),\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true) ~> DuplicateAllMovieRatingsForSelfJoin\nGetAllMovieRatings, DuplicateAllMovieRatingsForSelfJoin join(GetAllMovieRatings@userId == DuplicateAllMovieRatingsForSelfJoin@userId,\n\tjoinType:'inner',\n\tbroadcast: 'auto')~> SelfJoin\nSelfJoin filter(movieId1 > movieId2) ~> RemoveDuplicatedRatingsPairs\nRemoveDuplicatedRatingsPairs aggregate(groupBy(movieId1,\n\t\tmovieId2),\n\tscore = sum(toDouble(rating1)*toDouble(rating2))/(sqrt(sum(toDouble(rating1)*toDouble(rating1)))*sqrt(sum(toDouble(rating2)*toDouble(rating2)))),\n\t\tcoOcurrence = count(1)) ~> ComputeCosineSimilarities\nComputeCosineSimilarities sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tformat: 'parquet',\n\ttruncate: true,\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true) ~> ConsumptionCosineSimilarities"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/datasets/CuratedRatingsAllParquet')]",
+                "[concat(variables('factoryId'), '/datasets/ConsumptionCosineSimilaritiesParquet')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/MainPipeline')]",
+            "type": "Microsoft.DataFactory/factories/pipelines",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "activities": [
+                    {
+                        "name": "DataCurationAndPartition",
+                        "type": "ExecuteDataFlow",
+                        "dependsOn": [],
+                        "policy": {
+                            "timeout": "7.00:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "dataflow": {
+                                "referenceName": "DataCurationAndPartition",
+                                "type": "DataFlowReference",
+                                "parameters": {},
+                                "datasetParameters": {
+                                    "StagingLayer": {},
+                                    "CuratedLayer": {}
+                                }
+                            },
+                            "staging": {},
+                            "compute": {
+                                "coreCount": 8,
+                                "computeType": "General"
+                            }
+                        }
+                    },
+                    {
+                        "name": "CalculateCosineSimilarities",
+                        "type": "ExecuteDataFlow",
+                        "dependsOn": [
+                            {
+                                "activity": "DataCurationAndPartition",
+                                "dependencyConditions": [
+                                    "Succeeded"
+                                ]
+                            }
+                        ],
+                        "policy": {
+                            "timeout": "7.00:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "dataflow": {
+                                "referenceName": "CalculateCosineSimilarities",
+                                "type": "DataFlowReference",
+                                "parameters": {},
+                                "datasetParameters": {
+                                    "CuratedRatingsAllParquet": {},
+                                    "ConsumptionCosineSimilarities": {}
+                                }
+                            },
+                            "staging": {},
+                            "integrationRuntime": {
+                                "referenceName": "DataFlowIRMedium",
+                                "type": "IntegrationRuntimeReference"
+                            }
+                        }
+                    }
+                ],
+                "annotations": [],
+                "lastPublishTime": "2020-09-15T19:48:55Z"
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/dataflows/DataCurationAndPartition')]",
+                "[concat(variables('factoryId'), '/dataflows/CalculateCosineSimilarities')]",
+                "[concat(variables('factoryId'), '/integrationRuntimes/DataFlowIRMedium')]"
+            ]
+        }
+    ]
+}
