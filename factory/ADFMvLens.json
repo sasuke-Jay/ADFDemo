@@ -1,0 +1,9 @@
+{
+	"name": "ADFMvLens",
+	"location": "southindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "adab09e3-6f07-4d92-af46-65c002ab413d",
+		"tenantId": "cb518588-8741-403d-ae49-c4794c63dbe4"
+	}
+}
